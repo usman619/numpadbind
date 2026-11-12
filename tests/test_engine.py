@@ -10,7 +10,7 @@ class FakeUI:
 
 
 def make(numlock=True, **cfg):
-    c = {"enabled": True, "layer2_modifier": "shift", "passthrough": True,
+    c = {"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "on",
          "bindings": {"1": {"KP_5": {"type": "command", "target": "a"}},
                       "2": {"KP_5": {"type": "command", "target": "b"}}}}
     c.update(cfg)
@@ -78,3 +78,32 @@ def test_real_numlock_state_wins_over_internal_counter(tmp_path):
     f.write_text("1\n")
     eng.handle(ui, key(e.KEY_KP5, 0)); eng.handle(ui, key(e.KEY_KP5, 1))
     assert len(fired) == 1
+
+
+def test_default_trigger_is_numlock_off_digits_stay_normal_when_on():
+    eng, ui, fired = make(numlock=False, trigger_when="off")
+    eng.handle(ui, key(e.KEY_KP5, 1)); eng.handle(ui, key(e.KEY_KP5, 0))
+    assert [f[1] for f in fired] == ["KP_5"] and ui.out == []              # NumLock off: binding fires
+    eng2, ui2, fired2 = make(numlock=True, trigger_when="off")
+    eng2.handle(ui2, key(e.KEY_KP5, 1))
+    assert fired2 == [] and ui2.out == [(e.KEY_KP5, 1)]                    # NumLock on: normal digit
+
+
+def test_unbound_key_with_numlock_off_stays_arrow():
+    eng, ui, fired = make(numlock=False, trigger_when="off")
+    eng.handle(ui, key(e.KEY_KP8, 1))
+    assert fired == [] and ui.out == [(e.KEY_KP8, 1)]
+
+
+def test_unknown_numlock_state_never_fires():
+    eng, ui, fired = make(numlock=None, trigger_when="off")
+    eng.handle(ui, key(e.KEY_KP5, 1))
+    assert fired == []
+
+
+def test_lock_key_works_when_it_lives_in_layer2_after_a_swap():
+    eng, ui, fired = make()
+    eng.cfg["bindings"]["1"] = {}
+    eng.cfg["bindings"]["2"]["KP_0"] = {"type": "layer"}
+    eng.handle(ui, key(e.KEY_KP0, 1))                 # pressed from Layer 1
+    assert fired and fired[0][2]["type"] == "layer"

@@ -22,3 +22,9 @@ def save_cfg(cfg):
     tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
     tmp.replace(CFG_FILE)
 
+
+
+def swap_layers(cfg):
+    """Layer 1 gets Layer 2's bindings and vice versa (pressing it again undoes it)."""
+    b = cfg["bindings"]
+    b["1"], b["2"] = b["2"], b["1"]

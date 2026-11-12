@@ -19,3 +19,11 @@ def test_corrupt_file_falls_back(tmp_path, monkeypatch):
     f = tmp_path / "c.json"; f.write_text("{not json")
     monkeypatch.setattr(config, "CFG_FILE", f)
     assert config.load_cfg()["layer2_modifier"] == "shift"
+
+
+def test_swap_layers_is_reversible():
+    cfg = {"bindings": {"1": {"KP_1": {"type": "command", "target": "a"}}, "2": {"KP_2": {"type": "command", "target": "b"}}}}
+    config.swap_layers(cfg)
+    assert "KP_2" in cfg["bindings"]["1"] and "KP_1" in cfg["bindings"]["2"]
+    config.swap_layers(cfg)
+    assert "KP_1" in cfg["bindings"]["1"] and "KP_2" in cfg["bindings"]["2"]

@@ -7,7 +7,7 @@ from .settings import SettingsDialog
 
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="NumpadBind", default_width=460, default_height=560)
+        super().__init__(application=app, title="NumpadBind", default_width=500, default_height=560)
         self.app = app
         hb = Gtk.HeaderBar(show_close_button=True, title="NumpadBind"); self.hb = hb
         self.set_titlebar(hb)
@@ -15,6 +15,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sw.set_tooltip_text("Enable / pause all bindings")
         self.sw.connect("notify::active", lambda s, _p: app.set_enabled(s.get_active()))
         hb.pack_start(self.sw)
+        swap = Gtk.Button(label="⇄ Swap")
+        swap.set_tooltip_text("Swap layers: Layer 1 gets Layer 2's bindings and Layer 2 gets Layer 1's")
+        swap.connect("clicked", lambda *_: app.flip_layers())
+        hb.pack_start(swap)
         menu = Gtk.Menu()
         for text, cb in (("Settings…", lambda *_: SettingsDialog(self, app)), ("Import config…", lambda *_: app.import_cfg(self)),
                          ("Export config…", lambda *_: app.export_cfg(self)), ("Quit NumpadBind", lambda *_: app.quit())):
@@ -22,6 +26,7 @@ class MainWindow(Gtk.ApplicationWindow):
         menu.show_all()
         mb = Gtk.MenuButton(); mb.add(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
         mb.set_popup(menu); hb.pack_end(mb)
+        hb.show_all()          # the titlebar is not shown by outer.show_all(); without this the window has no bar to drag
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL); self.add(outer)
         self.bar = Gtk.InfoBar(message_type=Gtk.MessageType.WARNING, no_show_all=True)
@@ -43,7 +48,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def refresh(self):
         m = MOD_NAME[self.app.cfg["layer2_modifier"]]
         self.stack.child_set_property(self.pages["2"], "title", f"Layer 2 · {m}")
-        self.hint.set_text(f"With NumLock on, press a key for Layer 1 — hold {m} for Layer 2.")
+        self.hint.set_text(f"With NumLock {self.app.cfg.get('trigger_when', 'off')}, press a key for Layer 1 — hold {m} for Layer 2.")
         for p in self.pages.values(): p.refresh()
 
     def show_status(self, st):
@@ -52,4 +57,3 @@ class MainWindow(Gtk.ApplicationWindow):
                 "nodev": "No keyboard with a numpad was found."}
         if st in msgs: self.bar_lbl.set_text(msgs[st]); self.bar_lbl.show(); self.bar.show()
         else: self.bar.hide()
-

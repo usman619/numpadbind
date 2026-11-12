@@ -39,6 +39,11 @@ class Engine(threading.Thread):
         self.sticky = not self.sticky
         self.emit()
 
+    def bindings_active(self):
+        """Bindings fire in the NumLock state chosen in Settings (default: NumLock OFF);
+        in the other state the numpad keeps its normal behaviour."""
+        return self.numlock is not None and bool(self.numlock) == (self.cfg.get("trigger_when", "off") == "on")
+
     def dbg(self, msg):
         if self.debug: print("[numpadbind]", msg, flush=True)
 
@@ -155,15 +160,15 @@ class Engine(threading.Thread):
                 return
             if val == 1: self.sync_numlock(ui)
             if val == 1:
-                self.dbg(f"{CODE2NAME[code]} pressed: numlock={'ON' if self.numlock else 'off'} "
+                self.dbg(f"{CODE2NAME[code]} pressed: numlock={'ON' if self.numlock else 'off'} bindings_active={self.bindings_active()} "
                          f"({'sysfs' if ui in self.leds else 'counted'}) enabled={self.cfg['enabled']} "
                          f"layer={'2' if self.layer2_active() else '1'}")
-            if val == 1 and self.numlock and self.cfg["enabled"]:
+            if val == 1 and self.cfg["enabled"] and self.bindings_active():
                 layer = "2" if self.layer2_active() else "1"
                 name = CODE2NAME[code]
                 b = self.cfg["bindings"][layer].get(name)
-                if not b and layer == "2":      # the "Lock Layer 2" key must work from Layer 2 too, or you can't unlock
-                    b1 = self.cfg["bindings"]["1"].get(name)
+                if not b:      # the "Lock Layer 2" key must work from either layer, or you could get stuck
+                    b1 = self.cfg["bindings"]["1" if layer == "2" else "2"].get(name)
                     if b1 and b1.get("type") == "layer": b = b1
                 if b and b.get("type") not in (None, "none"):
                     self.dbg(f"  -> bound, running {b.get('type')}")
@@ -194,4 +199,3 @@ class Engine(threading.Thread):
     def stop(self):
         self.running = False
         for p in list(self.devs): self.drop(p)
-

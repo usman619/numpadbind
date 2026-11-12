@@ -13,7 +13,8 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gtk, Gdk, Gio, GLib, Pango  # noqa: E402
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf, Gio, GLib, Pango  # noqa: E402
 
 AppIndicator = None   # tray support is optional
 for _ns in ("AyatanaAppIndicator3", "AppIndicator3"):
@@ -24,4 +25,4 @@ for _ns in ("AyatanaAppIndicator3", "AppIndicator3"):
     except (ValueError, ImportError):
         pass
 
-__all__ = ["Gtk", "Gdk", "Gio", "GLib", "Pango", "AppIndicator"]
+__all__ = ["Gtk", "Gdk", "GdkPixbuf", "Gio", "GLib", "Pango", "AppIndicator"]

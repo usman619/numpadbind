@@ -9,6 +9,15 @@ class SettingsDialog(Gtk.Dialog):
         self.add_button("Close", Gtk.ResponseType.CLOSE)
         box = self.get_content_area(); box.set_spacing(10); box.set_border_width(16)
         cfg = app.cfg
+        trow = Gtk.Box(spacing=10); trow.pack_start(Gtk.Label(label="Bindings work when NumLock is", xalign=0), True, True, 0)
+        trig = Gtk.ComboBoxText(); trig.append("off", "Off (replaces arrows)"); trig.append("on", "On (replaces digits)")
+        trig.set_active_id(cfg.get("trigger_when", "off")); trow.pack_end(trig, False, False, 0)
+        box.pack_start(trow, False, False, 0)
+
+        def trig_changed(c):
+            cfg["trigger_when"] = c.get_active_id(); app.save(); win.refresh(); app.refresh_state()
+        trig.connect("changed", trig_changed)
+
         row = Gtk.Box(spacing=10); row.pack_start(Gtk.Label(label="Hold for Layer 2", xalign=0), True, True, 0)
         mod = Gtk.ComboBoxText()
         for k, n in MOD_LABELS: mod.append(k, n)
@@ -23,7 +32,7 @@ class SettingsDialog(Gtk.Dialog):
             def tog(c): cfg[key] = c.get_active(); app.save()
             cb.connect("toggled", tog); box.pack_start(cb, False, False, 0)
         check("Unbound numpad keys work normally", "passthrough",
-              "Off = unbound numpad keys do nothing while NumLock is on")
+              "Off = unbound numpad keys do nothing while bindings are active")
         check("Notify when a binding runs", "notify_trigger")
         check("Notify when the layer / NumLock changes", "notify_layer")
         auto = Gtk.CheckButton(label="Start automatically at login"); auto.set_active(AUTOSTART.exists())

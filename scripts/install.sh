@@ -24,6 +24,24 @@ rm -rf "$VENV"
 "$VENV/bin/pip" install --quiet --upgrade "$ROOT"
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
 install -m755 "$ROOT/packaging/numpadbind-launcher.sh" "$HOME/.local/bin/numpadbind"   # wrapper: cleans snap env, then runs the venv app
-install -m644 "$ROOT/packaging/numpadbind.desktop" "$HOME/.local/share/applications/numpadbind.desktop"
+rm -f "$HOME/.local/share/applications/numpadbind.desktop"     # old name; the id must match the app id for dock icons
+install -m644 "$ROOT/packaging/io.github.numpadbind.desktop" "$HOME/.local/share/applications/io.github.numpadbind.desktop"
+
+echo "==> Icon (from assets/)"
+pick() { local f="$ROOT/assets/numpadbind.$1"; if [ -f "$f" ]; then echo "$f"; else find "$ROOT/assets" -maxdepth 1 -name "*.$1" 2>/dev/null | sort | head -1 || true; fi; }
+THEME="$HOME/.local/share/icons/hicolor"
+ICON_SVG="$(pick svg)"; ICON_PNG="$(pick png)"
+[ -n "$ICON_SVG" ] && install -Dm644 "$ICON_SVG" "$THEME/scalable/apps/numpadbind.svg"
+if [ -n "$ICON_PNG" ]; then
+  SIZE="$(python3 - "$ICON_PNG" <<'PY'
+import struct, sys
+w = struct.unpack(">I", open(sys.argv[1], "rb").read(24)[16:20])[0]
+print(max([s for s in (16, 22, 24, 32, 48, 64, 96, 128, 256, 512) if s <= w] or [16]))
+PY
+)"
+  install -Dm644 "$ICON_PNG" "$THEME/${SIZE}x${SIZE}/apps/numpadbind.png"
+fi
+[ -z "$ICON_SVG$ICON_PNG" ] && echo "   no icon found in assets/ - using the generated tray icons"
+gtk-update-icon-cache -f -t "$THEME" 2>/dev/null || true
 
 echo "Done. Quit any running copy (tray icon -> Quit, or: pkill -f numpadbind), then run: numpadbind\n(No re-login needed. The input group is only a fallback for non-seat sessions.)"

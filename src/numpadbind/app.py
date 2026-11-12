@@ -4,8 +4,9 @@ from pathlib import Path
 
 from .actions import ActionRunner
 from .autostart import set_autostart
-from .config import load_cfg, save_cfg
+from .config import load_cfg, save_cfg, swap_layers
 from .constants import APP_ID, DEFAULTS
+from . import icons
 from .engine import Engine
 from .gi_setup import Gdk, GLib, Gtk
 from .tray import Tray
@@ -30,6 +31,7 @@ class App(Gtk.Application):
         prov = Gtk.CssProvider(); prov.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), prov,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        icons.apply_window_icon()
         self.tray = Tray(self)
         self.engine = Engine(self.cfg, self.on_state, self.on_status, self.fire, GLib.idle_add)
         self.engine.debug = self.debug
@@ -49,17 +51,25 @@ class App(Gtk.Application):
         Gtk.Application.do_shutdown(self)
 
     # engine callbacks (run on the GTK thread) -------------
+    def is_active(self, nl=None):
+        nl = self.state[0] if nl is None else nl
+        return bool(nl) == (self.cfg.get("trigger_when", "off") == "on")
+
     def status_text(self):
         nl, l2 = self.state
         if not self.cfg["enabled"]: return "Paused"
-        return f"NumLock on · Layer {2 if l2 else 1}" if nl else "NumLock off"
+        if self.is_active(nl): return f"Bindings active · Layer {2 if l2 else 1}"
+        return f"NumLock {'on' if nl else 'off'} · numpad normal"
+
+    def refresh_state(self):
+        self.on_state(*self.state)
 
     def on_state(self, nl, l2):
         old, self.state = self.state, (nl, l2)
-        self.tray.update(nl, l2, self.cfg["enabled"], self.status_text())
+        self.tray.update(self.is_active(nl), l2, self.cfg["enabled"], self.status_text())
         if self.win:
             self.win.hb.set_subtitle(self.status_text())
-            for p in self.win.pages.values(): p.set_numlock(nl)
+            for p in self.win.pages.values(): p.set_numlock(self.is_active(nl))
         if self.cfg["notify_layer"] and old != self.state and old != (False, False):
             notify("NumpadBind", self.status_text())
         return False
@@ -79,9 +89,13 @@ class App(Gtk.Application):
         self.cfg["enabled"] = v; self.save()
         if self.win: self.win.sw.set_active(v)
         self.tray.set_enabled(v)
-        self.tray.update(*self.state, v, self.status_text())
+        self.tray.update(self.is_active(), self.state[1], v, self.status_text())
 
     def save(self): save_cfg(self.cfg)
+
+    def flip_layers(self):
+        swap_layers(self.cfg); self.save()
+        if self.win: self.win.refresh()
 
     def export_cfg(self, win):
         d = Gtk.FileChooserDialog(title="Export", transient_for=win, action=Gtk.FileChooserAction.SAVE)

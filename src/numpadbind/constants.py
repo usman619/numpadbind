@@ -68,6 +68,6 @@ TYPES = [("none", "Nothing"), ("app", "Application"), ("command", "Command or sc
 TYPE_ICON = {"command": "utilities-terminal", "open": "folder-open", "keys": "input-keyboard",
              "system": "preferences-system", "layer": "go-up"}
 
-DEFAULTS = {"enabled": True, "layer2_modifier": "shift", "passthrough": True,
+DEFAULTS = {"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "off",  # bindings fire when NumLock is "off" or "on"
             "notify_trigger": False, "notify_layer": False, "bindings": {"1": {}, "2": {}}}
 

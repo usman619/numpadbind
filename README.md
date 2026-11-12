@@ -1,6 +1,17 @@
 # NumpadBind
 
-Bind apps, scripts and system actions to your numpad on Linux. NumLock on turns the numpad into a launcher with **two layers**: press a key for Layer 1, hold a modifier (Shift by default) for Layer 2. Works on X11 and Wayland, and finds apps installed with apt, Snap, Flatpak and AppImage.
+
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+
+<p align="center">
+  <img src="assets/numpadbind.png" alt="NumpadBind App Icon" width="128" height="128">
+</p>
+
+---
+
+Bind apps, scripts and system actions to your numpad on Linux. NumLock **off** turns the numpad into a launcher with **two layers** (NumLock on keeps the normal digits): press a key for Layer 1, hold a modifier (Shift by default) for Layer 2. Works on X11 and Wayland, and finds apps installed with apt, Snap, Flatpak and AppImage.
 
 ## Features
 
@@ -9,7 +20,7 @@ Bind apps, scripts and system actions to your numpad on Linux. NumLock on turns 
 - Apps from apt, Snap, Flatpak and AppImage, with a searchable picker that shows where each app came from
 - Action types: application, command or script (optionally in a terminal), URL / file / folder, send keystrokes, system actions, Layer 2 lock
 - System actions: volume up/down, mute, mic mute, play/pause, next/previous track, brightness up/down, screenshot (sent as real media keys, so your desktop shows its normal on-screen display), plus lock screen, suspend and dark-mode toggle
-- Tray icon in the top bar: bright = active, orange corner = Layer 2, dim = NumLock off or paused. Closing the window hides it to the tray
+- Tray icon in the top bar: bright = active, orange corner = Layer 2, dim = bindings inactive (NumLock in the other state) or paused. Closing the window hides it to the tray
 - Unbound numpad keys keep working normally (switchable)
 - Failed commands show a notification with the error instead of failing silently
 - Optional notifications, start at login, JSON import / export
@@ -83,17 +94,23 @@ make run        # PYTHONPATH=src python3 -m numpadbind
 
 ## Usage
 
-1. Turn **NumLock on**.
+1. Turn **NumLock off**. Bindings replace the arrow/Home/End behaviour; with NumLock on the numpad types digits as usual. Prefer the opposite? *Settings → Bindings work when NumLock is → On*.
 2. Click a key in the window, pick a type (for example *Application*), choose the target and press **Save**. **Test** runs it immediately.
 3. Press the key on your keyboard to run it.
 
 **Layer 2:** click the **Layer 2** tab above the numpad and bind keys the same way. Hold your Layer 2 modifier (Shift by default) and press the key. Change the modifier in *menu → Settings*.
+
+**Swap layers:** the **⇄ Swap** button in the title bar gives Layer 1 the bindings of Layer 2 and the other way round. Press it again to undo.
 
 **Lock Layer 2:** bind any key in Layer 1 to *Lock Layer 2 on / off*. Press it to stay on Layer 2 without holding a modifier, and press it again to switch back. Keys with no Layer 2 binding behave as normal numbers while it is locked.
 
 **Keystrokes:** enter combos like `ctrl+alt+t`, `super+d` or `volumeup`. Your Layer 2 modifier is still physically held while a combo fires.
 
 Configuration is stored in `~/.config/numpadbind/config.json`. Run `numpadbind --background` to start in the tray without a window.
+
+## Custom icon
+
+Put your icon in `assets/` as `numpadbind.svg` and/or `numpadbind.png` (any other `.svg` / `.png` name also works if those are missing; a PNG of 256px or larger is best). `./scripts/install.sh` installs it into your icon theme (`~/.local/share/icons/hicolor`), and NumpadBind uses it for the app menu, dock and window. The top-bar tray icon stays the built-in numpad-grid icon, so its states stay easy to read: bright when bindings are active, faded when inactive or paused, with an orange corner on Layer 2. After changing the icon, re-run the installer and restart the app (log out and in if the dock still shows the old one).
 
 ## Troubleshooting
 
@@ -104,14 +121,14 @@ Configuration is stored in `~/.config/numpadbind/config.json`. Run `numpadbind -
 | `ModuleNotFoundError: No module named 'gi'` | The venv was built on a non-system Python. Re-run `./scripts/install.sh`, which rebuilds it on `/usr/bin/python3` |
 | `GLIBCXX not found`, `GLIBC_PRIVATE`, or `snap/core20` errors | You started it from a snap app's terminal (VS Code snap). Use the installed launcher (`install -m755 packaging/numpadbind-launcher.sh ~/.local/bin/numpadbind`) or a normal terminal |
 | No tray icon | Enable the AppIndicator extension (on by default in Ubuntu); check `gir1.2-ayatanaappindicator3-0.1` is installed |
-| Keys do nothing | NumLock must be on, and the app must be enabled (switch in the title bar). Check that your keyboard sends keypad keycodes with `sudo evtest` |
+| Keys do nothing | NumLock must be in the state chosen in Settings (default: off), and the app must be enabled (switch in the title bar). Check that your keyboard sends keypad keycodes with `sudo evtest` |
 | Layer 2 does nothing with Shift | Some laptop firmwares send different codes with Shift held. Switch the modifier in Settings, or use the Lock Layer 2 key |
-| Numpad misbehaves with NumLock off, or fires when it shouldn't | Quit the app, run `numpadbind --debug` in a terminal and press a key: each press prints the detected NumLock state. `numpadbind --diagnose` (app running) shows how NumLock is detected; run it with NumLock on and off and compare |
+| Bindings fire in the wrong NumLock state | Quit the app, run `numpadbind --debug` in a terminal and press a key: each press prints the detected NumLock state. `numpadbind --diagnose` (app running) shows how NumLock is detected; run it with NumLock on and off and compare |
 | A command fails | A notification shows the exit code and error. Test the command in a terminal first |
 
 ## How it works
 
-`engine.py` grabs every keyboard that has a keypad through evdev. While NumLock is on, a bound numpad key is swallowed and its action runs; every other key is re-emitted unchanged through a virtual uinput keyboard. Because this happens below the display server, it works on Wayland and X11 alike. System actions and keystroke bindings are sent back through a virtual keyboard as ordinary key events.
+`engine.py` grabs every keyboard that has a keypad through evdev. While bindings are active (NumLock off by default), a bound numpad key is swallowed and its action runs; every other key is re-emitted unchanged through a virtual uinput keyboard. Because this happens below the display server, it works on Wayland and X11 alike. System actions and keystroke bindings are sent back through a virtual keyboard as ordinary key events.
 
 **Security note:** anything that can read `/dev/input` can see all keystrokes. The udev rule limits access to your logged-in desktop user, but only install NumpadBind on machines you trust.
 
@@ -128,7 +145,9 @@ src/numpadbind/
   constants.py   keys, modifiers, system actions, paths
   gi_setup.py    PyGObject setup (Flatpak / Snap launcher paths)
   autostart.py   start-at-login entry
+  icons.py       custom app icon (window, dock, app menu)
   ui/            window, numpad grid, editor, app picker, settings, CSS
+assets/          your app icon (svg / png)
 packaging/       udev rule, uinput module list, desktop entry, launcher
 scripts/         install.sh, uninstall.sh
 tests/           pytest suite
@@ -154,4 +173,4 @@ This removes the app, launcher, desktop and autostart entries, and the udev rule
 
 ## License
 
-MIT. See `LICENSE`.
+MIT: [LICENSE](LICENSE)
