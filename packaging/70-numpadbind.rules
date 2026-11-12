@@ -1,0 +1,5 @@
+# NumpadBind: give the logged-in desktop user access to keyboards and /dev/uinput.
+# "uaccess" grants an ACL to the active seat user immediately - no group membership or re-login needed.
+# Must sort before 73-seat-late.rules, hence the 70- prefix.
+KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660", TAG+="uaccess", OPTIONS+="static_node=uinput"
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_KEYBOARD}=="1", TAG+="uaccess"

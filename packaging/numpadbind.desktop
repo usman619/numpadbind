@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NumpadBind
+Comment=Bind apps, scripts and actions to your numpad
+Exec=numpadbind
+Icon=input-keyboard
+Categories=Utility;Settings;
+Keywords=numpad;keypad;shortcuts;hotkeys;launcher;
+StartupNotify=false
