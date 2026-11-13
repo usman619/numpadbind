@@ -1,3 +1,4 @@
+import time
 """Engine key-handling logic with fake devices (no /dev access needed)."""
 from types import SimpleNamespace as Ev
 from evdev import ecodes as e
@@ -10,7 +11,7 @@ class FakeUI:
 
 
 def make(numlock=True, **cfg):
-    c = {"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "on",
+    c = {"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "on", "hold_ms": 60, "double_ms": 80,
          "bindings": {"1": {"KP_5": {"type": "command", "target": "a"}},
                       "2": {"KP_5": {"type": "command", "target": "b"}}}}
     c.update(cfg)
@@ -107,3 +108,52 @@ def test_lock_key_works_when_it_lives_in_layer2_after_a_swap():
     eng.cfg["bindings"]["2"]["KP_0"] = {"type": "layer"}
     eng.handle(ui, key(e.KEY_KP0, 1))                 # pressed from Layer 1
     assert fired and fired[0][2]["type"] == "layer"
+
+
+def cmd(t, **extra): return {"type": "command", "target": t, **extra}
+
+
+def targets(fired): return [f[2]["target"] for f in fired]
+
+
+def bind5(eng, b): eng.cfg["bindings"]["1"]["KP_5"] = b
+
+
+def test_plain_binding_still_fires_instantly_on_press():
+    eng, ui, fired = make()
+    eng.handle(ui, key(e.KEY_KP5, 1))
+    assert targets(fired) == ["a"]                       # no release needed, no delay
+
+
+def test_hold_fires_hold_action_not_tap():
+    eng, ui, fired = make(); bind5(eng, cmd("tap", hold=cmd("hold")))
+    eng.handle(ui, key(e.KEY_KP5, 1)); time.sleep(0.2); eng.handle(ui, key(e.KEY_KP5, 0))
+    assert targets(fired) == ["hold"] and ui.out == []
+
+
+def test_quick_tap_with_hold_defined_fires_tap_on_release():
+    eng, ui, fired = make(); bind5(eng, cmd("tap", hold=cmd("hold")))
+    eng.handle(ui, key(e.KEY_KP5, 1)); assert fired == []          # waits to see if it becomes a hold
+    eng.handle(ui, key(e.KEY_KP5, 0)); time.sleep(0.15)
+    assert targets(fired) == ["tap"]
+
+
+def test_double_tap_fires_only_double():
+    eng, ui, fired = make(); bind5(eng, cmd("tap", double=cmd("dbl")))
+    for v in (1, 0, 1, 0): eng.handle(ui, key(e.KEY_KP5, v)); time.sleep(0.01)
+    time.sleep(0.2)
+    assert targets(fired) == ["dbl"]
+
+
+def test_single_tap_with_double_defined_fires_tap_after_the_window():
+    eng, ui, fired = make(); bind5(eng, cmd("tap", double=cmd("dbl")))
+    eng.handle(ui, key(e.KEY_KP5, 1)); eng.handle(ui, key(e.KEY_KP5, 0))
+    assert fired == []
+    time.sleep(0.25)
+    assert targets(fired) == ["tap"]
+
+
+def test_hold_only_key_with_empty_tap_does_nothing_on_quick_tap():
+    eng, ui, fired = make(); bind5(eng, {"type": "none", "hold": cmd("hold")})
+    eng.handle(ui, key(e.KEY_KP5, 1)); eng.handle(ui, key(e.KEY_KP5, 0)); time.sleep(0.15)
+    assert fired == [] and ui.out == []                   # swallowed, nothing fired

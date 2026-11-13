@@ -34,5 +34,19 @@ def describe(b):
         return label or name, TYPE_ICON[t], name
     if t == "layer":
         return label or "Lock Layer 2", TYPE_ICON[t], "Toggle sticky Layer 2"
+    if t == "overlay":
+        return label or "Cheat sheet", TYPE_ICON[t], "Show what every key does"
     return label or tip, TYPE_ICON.get(t, "list-add-symbolic"), tip
 
+
+
+def key_summary(b):
+    """Tap / hold / double-tap view of one key -> (label, icon, tooltip, extra_lines)."""
+    items = []
+    if b.get("type") not in (None, "none"): items.append(("", b))
+    if b.get("hold"): items.append(("hold: ", b["hold"]))
+    if b.get("double"): items.append(("×2: ", b["double"]))
+    if not items: items = [("", b)]
+    (pre, main), rest = items[0], items[1:]
+    text, icon, tip = describe(main)
+    return pre + text, icon, tip, [p + describe(x)[0] for p, x in rest]

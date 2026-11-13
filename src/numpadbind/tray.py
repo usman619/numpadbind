@@ -32,6 +32,7 @@ class Tray:
         mi = Gtk.CheckMenuItem(label="Lock Layer 2")
         mi.connect("toggled", lambda m: m.get_active() != app.engine.sticky and app.engine.toggle_sticky())
         menu.append(mi)
+        mi = Gtk.MenuItem(label="Show cheat sheet"); mi.connect("activate", lambda *_: app.toggle_overlay()); menu.append(mi)
         mi = Gtk.MenuItem(label="Open NumpadBind"); mi.connect("activate", lambda *_: app.activate()); menu.append(mi)
         menu.append(Gtk.SeparatorMenuItem())
         mi = Gtk.MenuItem(label="Quit"); mi.connect("activate", lambda *_: app.quit()); menu.append(mi)

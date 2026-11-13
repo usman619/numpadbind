@@ -1,16 +1,5 @@
 # NumpadBind
 
-
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
-
-<p align="center">
-  <img src="assets/numpadbind.png" alt="NumpadBind App Icon" width="128" height="128">
-</p>
-
----
-
 Bind apps, scripts and system actions to your numpad on Linux. NumLock **off** turns the numpad into a launcher with **two layers** (NumLock on keeps the normal digits): press a key for Layer 1, hold a modifier (Shift by default) for Layer 2. Works on X11 and Wayland, and finds apps installed with apt, Snap, Flatpak and AppImage.
 
 ## Features
@@ -18,6 +7,8 @@ Bind apps, scripts and system actions to your numpad on Linux. NumLock **off** t
 - Click a numpad key in the window to bind it; live key flash when a binding fires
 - Two layers, with a configurable Layer 2 modifier (Shift, Ctrl, Alt, AltGr, Right Ctrl, Super) and a "Lock Layer 2" toggle key
 - Apps from apt, Snap, Flatpak and AppImage, with a searchable picker that shows where each app came from
+- Three actions per key: **tap**, **hold** and **double-tap**
+- Cheat-sheet overlay showing what every key does right now (bind it to a Hold, or open it from the tray)
 - Action types: application, command or script (optionally in a terminal), URL / file / folder, send keystrokes, system actions, Layer 2 lock
 - System actions: volume up/down, mute, mic mute, play/pause, next/previous track, brightness up/down, screenshot (sent as real media keys, so your desktop shows its normal on-screen display), plus lock screen, suspend and dark-mode toggle
 - Tray icon in the top bar: bright = active, orange corner = Layer 2, dim = bindings inactive (NumLock in the other state) or paused. Closing the window hides it to the tray
@@ -100,6 +91,10 @@ make run        # PYTHONPATH=src python3 -m numpadbind
 
 **Layer 2:** click the **Layer 2** tab above the numpad and bind keys the same way. Hold your Layer 2 modifier (Shift by default) and press the key. Change the modifier in *menu → Settings*.
 
+**Tap, hold and double-tap:** the key editor has three tabs. *Tap* is a quick press, *Hold* runs when you keep the key down (0.35 s by default), and *Double-tap* runs when you press twice quickly. Keys with only a Tap action fire instantly. If a key also has Hold or Double-tap, its tap waits a moment: until you release it (Hold) or until the double-tap window passes (Double-tap). Times are adjustable in Settings. Keys with extra actions show ⏱ and ×2 badges.
+
+**Cheat sheet:** bind *Show cheat sheet* to a key (a **Hold** action on a key like 5 works well) or pick it from the tray menu. A translucent numpad pops up with the current layer's bindings, and follows you if you hold the Layer 2 modifier. It closes after a few seconds (Settings), when you click it, or when you press a bound key.
+
 **Swap layers:** the **⇄ Swap** button in the title bar gives Layer 1 the bindings of Layer 2 and the other way round. Press it again to undo.
 
 **Lock Layer 2:** bind any key in Layer 1 to *Lock Layer 2 on / off*. Press it to stay on Layer 2 without holding a modifier, and press it again to switch back. Keys with no Layer 2 binding behave as normal numbers while it is locked.
@@ -146,6 +141,7 @@ src/numpadbind/
   gi_setup.py    PyGObject setup (Flatpak / Snap launcher paths)
   autostart.py   start-at-login entry
   icons.py       custom app icon (window, dock, app menu)
+  ui/overlay.py  cheat-sheet overlay
   ui/            window, numpad grid, editor, app picker, settings, CSS
 assets/          your app icon (svg / png)
 packaging/       udev rule, uinput module list, desktop entry, launcher
@@ -173,4 +169,4 @@ This removes the app, launcher, desktop and autostart entries, and the udev rule
 
 ## License
 
-MIT: [LICENSE](LICENSE)
+MIT. See `LICENSE`.

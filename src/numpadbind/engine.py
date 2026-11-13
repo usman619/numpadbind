@@ -8,6 +8,14 @@ from .constants import CODE2NAME, MODS, VNAME
 from .util import notify, parse_combo
 
 
+def real(b):
+    return bool(b) and b.get("type") not in (None, "none")
+
+
+def has_action(b):
+    return bool(b) and (real(b) or bool(b.get("hold")) or bool(b.get("double")))
+
+
 class Engine(threading.Thread):
     """Grabs keyboards, swallows bound numpad keys, forwards everything else."""
 
@@ -22,6 +30,8 @@ class Engine(threading.Thread):
         self.pressed, self.swallowed = set(), set()
         self.numlock, self.sticky, self.last, self.status = None, False, None, None
         self.debug = False
+        self.lock = threading.RLock()
+        self.press, self.pending = {}, {}   # tap/hold/double-tap state per numpad key
         self.leds = {}          # uinput device -> sysfs file holding the desktop's real NumLock state
         self.injector, self.running = None, True
 
@@ -156,7 +166,8 @@ class Engine(threading.Thread):
                 self.toggle_numlock(); self.emit()
         elif code in CODE2NAME:
             if code in self.swallowed:               # release / repeat of a bound key
-                if val == 0: self.swallowed.discard(code)
+                if val == 0:
+                    self.swallowed.discard(code); self.on_release(code)
                 return
             if val == 1: self.sync_numlock(ui)
             if val == 1:
@@ -170,14 +181,60 @@ class Engine(threading.Thread):
                 if not b:      # the "Lock Layer 2" key must work from either layer, or you could get stuck
                     b1 = self.cfg["bindings"]["1" if layer == "2" else "2"].get(name)
                     if b1 and b1.get("type") == "layer": b = b1
-                if b and b.get("type") not in (None, "none"):
-                    self.dbg(f"  -> bound, running {b.get('type')}")
+                if has_action(b):
+                    self.dbg(f"  -> bound ({b.get('type')}, hold={bool(b.get('hold'))}, double={bool(b.get('double'))})")
                     self.swallowed.add(code)
-                    self.call_main(self.on_fire, layer, name, b)
+                    self.on_press(code, layer, name, b)
                     return
                 if not self.cfg["passthrough"]:
                     self.swallowed.add(code); return
         ui.write_event(ev)
+
+    # tap / hold / double-tap -------------------------------
+    def _fire(self, layer, name, b):
+        if real(b): self.call_main(self.on_fire, layer, name, b)
+
+    def on_press(self, code, layer, name, b):
+        hold, dbl = b.get("hold"), b.get("double")
+        if not hold and not dbl:                    # plain binding: fires instantly, no waiting
+            self._fire(layer, name, b); return
+        with self.lock:
+            pend = self.pending.pop(code, None)
+        if pend:
+            timer, pst = pend; timer.cancel()
+            if dbl:                                 # second press in time -> double-tap
+                with self.lock: self.press[code] = {"done": True, "timer": None}
+                self._fire(layer, name, dbl); return
+            self._fire(pst["layer"], pst["name"], pst["b"])
+        st = {"layer": layer, "name": name, "b": b, "done": False, "timer": None}
+        with self.lock: self.press[code] = st
+        if hold:
+            st["timer"] = threading.Timer(self.cfg.get("hold_ms", 350) / 1000, self._hold_fire, [code, st])
+            st["timer"].daemon = True; st["timer"].start()
+
+    def on_release(self, code):
+        with self.lock:
+            st = self.press.pop(code, None)
+            if not st or st["done"]: return         # already handled as hold / double-tap
+            st["done"] = True
+            if st["timer"]: st["timer"].cancel()
+            if st["b"].get("double"):               # wait a moment to see if a second tap follows
+                t = threading.Timer(self.cfg.get("double_ms", 280) / 1000, self._tap_fire, [code, st])
+                t.daemon = True; self.pending[code] = (t, st); t.start(); return
+        self._fire(st["layer"], st["name"], st["b"])
+
+    def _hold_fire(self, code, st):
+        with self.lock:
+            if self.press.get(code) is not st or st["done"]: return
+            st["done"] = True
+        self._fire(st["layer"], st["name"], st["b"]["hold"])
+
+    def _tap_fire(self, code, st):
+        with self.lock:
+            cur = self.pending.get(code)
+            if not cur or cur[1] is not st: return
+            del self.pending[code]
+        self._fire(st["layer"], st["name"], st["b"])
 
     # key injection -----------------------------------------
     def send_keys(self, combo):
@@ -199,3 +256,4 @@ class Engine(threading.Thread):
     def stop(self):
         self.running = False
         for p in list(self.devs): self.drop(p)
+

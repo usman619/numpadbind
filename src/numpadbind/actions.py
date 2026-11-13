@@ -11,8 +11,8 @@ TERMINALS = (("gnome-terminal", ["--"]), ("ptyxis", ["--"]), ("konsole", ["-e"])
 
 
 class ActionRunner:
-    def __init__(self, cfg, engine_getter):
-        self.cfg, self.engine = cfg, engine_getter
+    def __init__(self, cfg, engine_getter, overlay=lambda: None):
+        self.cfg, self.engine, self.overlay = cfg, engine_getter, overlay
 
     def run(self, b):
         t = b.get("type")
@@ -26,6 +26,7 @@ class ActionRunner:
                 if key: self.engine().send_keys(key)
                 else: self.run_cmd(SYSTEM[b["target"]][1])
             elif t == "layer": self.engine().toggle_sticky()
+            elif t == "overlay": self.overlay()
             if self.cfg["notify_trigger"] and t != "layer":
                 notify("NumpadBind", describe(b)[0] or t)
         except Exception as ex:

@@ -1,6 +1,6 @@
 """Settings dialog."""
 from ..gi_setup import Gtk
-from ..constants import AUTOSTART, MOD_LABELS
+from ..constants import AUTOSTART, DEFAULTS, MOD_LABELS
 
 
 class SettingsDialog(Gtk.Dialog):
@@ -35,6 +35,14 @@ class SettingsDialog(Gtk.Dialog):
               "Off = unbound numpad keys do nothing while bindings are active")
         check("Notify when a binding runs", "notify_trigger")
         check("Notify when the layer / NumLock changes", "notify_layer")
+        def spin(text, key, lo, hi, step, tip):
+            r = Gtk.Box(spacing=10); r.pack_start(Gtk.Label(label=text, xalign=0), True, True, 0)
+            sp = Gtk.SpinButton.new_with_range(lo, hi, step); sp.set_value(cfg.get(key, DEFAULTS[key])); sp.set_tooltip_text(tip)
+            sp.connect("value-changed", lambda w: (cfg.__setitem__(key, int(w.get_value())), app.save()))
+            r.pack_end(sp, False, False, 0); box.pack_start(r, False, False, 0)
+        spin("Hold time (ms)", "hold_ms", 150, 1000, 50, "How long to keep a key down for a Hold action")
+        spin("Double-tap window (ms)", "double_ms", 150, 800, 50, "Max gap between the two taps")
+        spin("Cheat sheet stays (seconds)", "overlay_secs", 0, 30, 1, "0 = until you click it or press a key")
         auto = Gtk.CheckButton(label="Start automatically at login"); auto.set_active(AUTOSTART.exists())
         auto.connect("toggled", lambda c: app.set_autostart(c.get_active()))
         box.pack_start(auto, False, False, 0)

@@ -11,6 +11,7 @@ from .engine import Engine
 from .gi_setup import Gdk, GLib, Gtk
 from .tray import Tray
 from .ui.css import CSS
+from .ui.overlay import CheatSheet
 from .ui.window import MainWindow
 from .util import notify
 
@@ -21,7 +22,8 @@ class App(Gtk.Application):
         self.background, self.debug, self.win, self.cfg = background, debug, None, load_cfg()
         self.engine = self.tray = None
         self.state = (False, False)
-        self.actions = ActionRunner(self.cfg, lambda: self.engine)
+        self.sheet = None
+        self.actions = ActionRunner(self.cfg, lambda: self.engine, self.toggle_overlay)
         self.set_autostart = set_autostart
 
     # lifecycle --------------------------------------------
@@ -67,6 +69,7 @@ class App(Gtk.Application):
     def on_state(self, nl, l2):
         old, self.state = self.state, (nl, l2)
         self.tray.update(self.is_active(nl), l2, self.cfg["enabled"], self.status_text())
+        if self.sheet and self.sheet.get_visible(): self.sheet.update_layer("2" if l2 else "1")
         if self.win:
             self.win.hb.set_subtitle(self.status_text())
             for p in self.win.pages.values(): p.set_numlock(self.is_active(nl))
@@ -78,7 +81,14 @@ class App(Gtk.Application):
         if self.win: self.win.show_status(st)
         return False
 
+    def toggle_overlay(self):
+        if not self.sheet: self.sheet = CheatSheet(self)
+        if self.sheet.get_visible(): self.sheet.hide_sheet()
+        else: self.sheet.show_sheet("2" if self.state[1] else "1")
+
     def fire(self, layer, name, b):
+        if self.sheet and self.sheet.get_visible() and b.get("type") != "overlay":
+            self.sheet.hide_sheet()                   # you picked something: get out of the way
         if self.win: self.win.pages[layer].flash(name)
         self.actions.run(b)
         return False

@@ -57,3 +57,4 @@ class MainWindow(Gtk.ApplicationWindow):
                 "nodev": "No keyboard with a numpad was found."}
         if st in msgs: self.bar_lbl.set_text(msgs[st]); self.bar_lbl.show(); self.bar.show()
         else: self.bar.hide()
+

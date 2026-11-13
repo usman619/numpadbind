@@ -64,10 +64,11 @@ SYSTEM_KEYS = {"play_pause": "playpause", "next": "nextsong", "prev": "previouss
                "bright_up": "brightnessup", "bright_down": "brightnessdown", "screenshot": "sysrq"}
 TYPES = [("none", "Nothing"), ("app", "Application"), ("command", "Command or script"),
          ("open", "URL, file or folder"), ("keys", "Send keystrokes"),
-         ("system", "System action"), ("layer", "Lock Layer 2 on / off")]
+         ("system", "System action"), ("layer", "Lock Layer 2 on / off"),
+         ("overlay", "Show cheat sheet")]
 TYPE_ICON = {"command": "utilities-terminal", "open": "folder-open", "keys": "input-keyboard",
-             "system": "preferences-system", "layer": "go-up"}
+             "system": "preferences-system", "layer": "go-up", "overlay": "view-grid-symbolic"}
 
-DEFAULTS = {"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "off",  # bindings fire when NumLock is "off" or "on"
+DEFAULTS = {"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "off", "hold_ms": 350, "double_ms": 280, "overlay_secs": 5,  # bindings fire when NumLock is "off" or "on"
             "notify_trigger": False, "notify_layer": False, "bindings": {"1": {}, "2": {}}}
 

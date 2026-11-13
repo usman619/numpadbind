@@ -1,6 +1,6 @@
 """The numpad grid shown inside the main window."""
 from ..gi_setup import Gtk, Gio, GLib, Pango
-from ..apps import describe
+from ..apps import key_summary
 from ..constants import KEYS
 from .editor import EditorDialog
 
@@ -23,11 +23,16 @@ class NumpadPage(Gtk.Grid):
             if btn.get_child(): btn.remove(btn.get_child())
             b = self.app.cfg["bindings"][self.layer].get(name)
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-            num = Gtk.Label(label=label, xalign=0); num.get_style_context().add_class("npnum")
-            box.pack_start(num, False, False, 0)
+            num = Gtk.Label(label=label, xalign=0, hexpand=True); num.get_style_context().add_class("npnum")
+            top = Gtk.Box(); top.pack_start(num, True, True, 0)
+            badges = ("⏱" if b and b.get("hold") else "") + (" ×2" if b and b.get("double") else "")
+            if badges:
+                bl = Gtk.Label(label=badges.strip()); bl.get_style_context().add_class("npnum"); top.pack_end(bl, False, False, 0)
+            box.pack_start(top, False, False, 0)
             ctx = btn.get_style_context()
             if b:
-                text, icon, tip = describe(b)
+                text, icon, tip, extras = key_summary(b)
+                if extras: tip = "\n".join([tip] + extras)
                 img = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.DIALOG) if isinstance(icon, Gio.Icon) \
                     else Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
                 lbl = Gtk.Label(label=text); lbl.set_ellipsize(Pango.EllipsizeMode.END); lbl.set_max_width_chars(10)
