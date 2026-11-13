@@ -3,8 +3,7 @@ import json
 from pathlib import Path
 
 from .actions import ActionRunner
-from .autostart import set_autostart
-from .config import load_cfg, save_cfg, swap_layers
+from .config import load_cfg, normalize, save_cfg, swap_layers
 from .constants import APP_ID, DEFAULTS
 from . import icons
 from .engine import Engine
@@ -22,9 +21,9 @@ class App(Gtk.Application):
         self.background, self.debug, self.win, self.cfg = background, debug, None, load_cfg()
         self.engine = self.tray = None
         self.state = (False, False)
+        self._shown, self._state_timer = None, None
         self.sheet = None
         self.actions = ActionRunner(self.cfg, lambda: self.engine, self.toggle_overlay)
-        self.set_autostart = set_autostart
 
     # lifecycle --------------------------------------------
     def do_startup(self):
@@ -64,16 +63,27 @@ class App(Gtk.Application):
         return f"NumLock {'on' if nl else 'off'} · numpad normal"
 
     def refresh_state(self):
-        self.on_state(*self.state)
+        if self._state_timer: GLib.source_remove(self._state_timer); self._state_timer = None
+        self._shown = None
+        self._apply_state()
 
     def on_state(self, nl, l2):
-        old, self.state = self.state, (nl, l2)
+        self.state = (nl, l2)
+        if self._state_timer is None:                 # coalesce bursts (e.g. quick Shift taps) into one UI update
+            self._state_timer = GLib.timeout_add(120, self._apply_state)
+        return False
+
+    def _apply_state(self):
+        self._state_timer = None
+        old, self._shown = self._shown, self.state
+        if old == self.state: return False
+        nl, l2 = self.state
         self.tray.update(self.is_active(nl), l2, self.cfg["enabled"], self.status_text())
         if self.sheet and self.sheet.get_visible(): self.sheet.update_layer("2" if l2 else "1")
         if self.win:
             self.win.hb.set_subtitle(self.status_text())
             for p in self.win.pages.values(): p.set_numlock(self.is_active(nl))
-        if self.cfg["notify_layer"] and old != self.state and old != (False, False):
+        if self.cfg["notify_layer"] and old is not None and old != (False, False):
             notify("NumpadBind", self.status_text())
         return False
 
@@ -122,7 +132,8 @@ class App(Gtk.Application):
             try:
                 data = json.loads(Path(d.get_filename()).read_text())
                 self.cfg.update({k: v for k, v in data.items() if k in DEFAULTS})   # in place: engine shares it
-                self.save(); win.refresh()
-            except (OSError, ValueError) as ex:
+                normalize(self.cfg)
+                self.save(); win.refresh(); self.refresh_state()
+            except (OSError, ValueError, AttributeError) as ex:
                 notify("Import failed", str(ex))
         d.destroy()

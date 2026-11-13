@@ -157,3 +157,37 @@ def test_hold_only_key_with_empty_tap_does_nothing_on_quick_tap():
     eng, ui, fired = make(); bind5(eng, {"type": "none", "hold": cmd("hold")})
     eng.handle(ui, key(e.KEY_KP5, 1)); eng.handle(ui, key(e.KEY_KP5, 0)); time.sleep(0.15)
     assert fired == [] and ui.out == []                   # swallowed, nothing fired
+
+
+def test_shift_does_not_cause_state_updates_while_bindings_are_inactive():
+    states = []
+    eng = Engine({"enabled": True, "layer2_modifier": "shift", "passthrough": True, "trigger_when": "off",
+                  "bindings": {"1": {}, "2": {}}}, lambda *a: states.append(a), lambda *a: None, lambda *a: None)
+    eng.numlock = True                                   # NumLock ON = normal typing mode
+    ui = FakeUI()
+    eng.handle(ui, key(e.KEY_LEFTSHIFT, 1)); eng.handle(ui, key(e.KEY_LEFTSHIFT, 0))
+    assert states == [(True, False)]                     # one initial state, nothing per capital letter
+    eng.numlock = False                                  # bindings active: Shift now means Layer 2
+    eng.handle(ui, key(e.KEY_LEFTSHIFT, 1))
+    assert states[-1] == (False, True)
+
+
+def test_scan_looks_at_each_device_node_only_once(monkeypatch):
+    from numpadbind import engine as eng_mod
+    opened = []
+
+    class FakeDev:
+        def __init__(self, path): opened.append(path); self.name = "mouse"
+        def capabilities(self): return {e.EV_KEY: [e.BTN_LEFT]}
+        def close(self): pass
+
+    monkeypatch.setattr(eng_mod, "InputDevice", FakeDev)
+    monkeypatch.setattr(eng_mod.glob, "glob", lambda pat: ["/dev/input/event1", "/dev/input/event2"])
+    eng, ui, _ = make()
+    eng.scan(); eng.scan(); eng.scan()
+    assert sorted(opened) == ["/dev/input/event1", "/dev/input/event2"]      # not re-opened every 3 s
+    monkeypatch.setattr(eng_mod.glob, "glob", lambda pat: ["/dev/input/event2"])
+    eng.scan()                                           # event1 unplugged...
+    monkeypatch.setattr(eng_mod.glob, "glob", lambda pat: ["/dev/input/event1", "/dev/input/event2"])
+    eng.scan()                                           # ...and a new device reuses its number
+    assert opened.count("/dev/input/event1") == 2

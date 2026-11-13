@@ -4,4 +4,12 @@
 if [ -n "${SNAP:-}${SNAP_NAME:-}" ] || [[ "${LD_LIBRARY_PATH:-}${GIO_MODULE_DIR:-}${GTK_PATH:-}" == */snap/* ]]; then
   unset $(env | cut -d= -f1 | grep -E '^(SNAP|GIO_MODULE_DIR$|GTK_PATH$|GTK_EXE_PREFIX$|GTK_IM_MODULE_FILE$|GDK_PIXBUF|GSETTINGS_SCHEMA_DIR$|LOCPATH$|FONTCONFIG|LD_LIBRARY_PATH$|LD_PRELOAD$|XDG_DATA_HOME$|XDG_DATA_DIRS$|XDG_CONFIG_HOME$|XDG_CONFIG_DIRS$)')
 fi
+# Started at login (--background)? Keep a log so a silent failure can be diagnosed.
+case " $* " in *" --background "*)
+  LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/numpadbind"; LOG="$LOG_DIR/numpadbind.log"
+  mkdir -p "$LOG_DIR"
+  [ -f "$LOG" ] && [ "$(stat -c %s "$LOG")" -gt 200000 ] && : > "$LOG"
+  echo "--- $(date '+%F %T') starting: $*" >> "$LOG"
+  exec >> "$LOG" 2>&1 ;;
+esac
 exec "${NUMPADBIND_VENV:-$HOME/.local/share/numpadbind/venv}/bin/numpadbind" "$@"

@@ -42,4 +42,8 @@ def run():
     print("gsettings numlock-state:", _sh("gsettings get org.gnome.desktop.peripherals.keyboard numlock-state"))
     print("xset (X11/XWayland):", _sh("xset q | grep -i 'num lock'"))
     print("session type:", os.environ.get("XDG_SESSION_TYPE", "?"))
+    from . import autostart
+    print("\n== Autostart ==")
+    print("entry:", autostart.AUTOSTART, "| enabled:", autostart.is_enabled())
+    print(_read(autostart.AUTOSTART) if autostart.AUTOSTART.exists() else "(no entry)")
     print("\nRun this once with NumLock ON and once with it OFF and compare.")

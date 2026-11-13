@@ -30,6 +30,8 @@ class Engine(threading.Thread):
         self.pressed, self.swallowed = set(), set()
         self.numlock, self.sticky, self.last, self.status = None, False, None, None
         self.debug = False
+        self.ignored = set()        # event nodes already checked and found not to be keyboards
+        self._last_sync = 0.0
         self.lock = threading.RLock()
         self.press, self.pending = {}, {}   # tap/hold/double-tap state per numpad key
         self.leds = {}          # uinput device -> sysfs file holding the desktop's real NumLock state
@@ -40,7 +42,7 @@ class Engine(threading.Thread):
         return self.sticky or any(c in self.pressed for c in MODS.get(self.cfg["layer2_modifier"], []))
 
     def emit(self):
-        st = (bool(self.numlock), self.layer2_active())
+        st = (bool(self.numlock), self.bindings_active() and self.layer2_active())
         if st != self.last:
             self.last = st
             self.call_main(self.on_state, *st)
@@ -97,8 +99,10 @@ class Engine(threading.Thread):
     # devices -----------------------------------------------
     def scan(self):
         perm = uin = False
-        for path in glob.glob("/dev/input/event*"):
-            if path in self.devs or time.time() < self.bad.get(path, 0):
+        paths = set(glob.glob("/dev/input/event*"))
+        self.ignored &= paths                         # forget nodes that disappeared (numbers get reused)
+        for path in sorted(paths - set(self.devs) - self.ignored):   # only nodes we have not judged yet
+            if time.time() < self.bad.get(path, 0):
                 continue
             try:
                 dev = InputDevice(path)
@@ -107,7 +111,7 @@ class Engine(threading.Thread):
             except OSError:
                 continue
             if dev.name.startswith(VNAME) or e.KEY_KP5 not in dev.capabilities().get(e.EV_KEY, []):
-                dev.close(); continue
+                dev.close(); self.ignored.add(path); continue     # mouse, lid switch, our own device...
             try:
                 ui = UInput.from_device(dev, name=(VNAME + " " + dev.name)[:79])
             except Exception:
@@ -140,12 +144,17 @@ class Engine(threading.Thread):
             if not fds:
                 time.sleep(1); continue
             ready, _, _ = select.select(list(fds), [], [], 1.0)
-            self.sync_numlock()
+            now = time.monotonic()
+            if now - self._last_sync > 0.25:          # not on every keystroke
+                self._last_sync = now; self.sync_numlock()
             for fd in ready:
                 path = fds[fd]
                 dev, ui = self.devs[path]
                 try:
                     for ev in dev.read():
+                        if self.debug and ev.type == e.EV_KEY:
+                            lag = (time.time() - ev.timestamp()) * 1000
+                            if lag > 15: self.dbg(f"slow: key event waited {lag:.0f} ms before being forwarded")
                         self.handle(ui, ev)
                 except BlockingIOError:
                     pass
@@ -256,4 +265,3 @@ class Engine(threading.Thread):
     def stop(self):
         self.running = False
         for p in list(self.devs): self.drop(p)
-

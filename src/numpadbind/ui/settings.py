@@ -1,12 +1,16 @@
 """Settings dialog."""
 from ..gi_setup import Gtk
-from ..constants import AUTOSTART, DEFAULTS, MOD_LABELS
+from ..autostart import is_enabled, set_autostart
+from ..constants import DEFAULTS, MOD_LABELS
+from ..util import notify
 
 
 class SettingsDialog(Gtk.Dialog):
     def __init__(self, win, app):
         super().__init__(title="Settings", transient_for=win, modal=True, use_header_bar=1)
         self.add_button("Close", Gtk.ResponseType.CLOSE)
+        self.set_default_response(Gtk.ResponseType.CLOSE)
+        self.connect("response", lambda d, _r: d.destroy())     # Close button, Esc and the title-bar X
         box = self.get_content_area(); box.set_spacing(10); box.set_border_width(16)
         cfg = app.cfg
         trow = Gtk.Box(spacing=10); trow.pack_start(Gtk.Label(label="Bindings work when NumLock is", xalign=0), True, True, 0)
@@ -24,7 +28,7 @@ class SettingsDialog(Gtk.Dialog):
         mod.set_active_id(cfg["layer2_modifier"]); row.pack_end(mod, False, False, 0); box.pack_start(row, False, False, 0)
 
         def mod_changed(c):
-            cfg["layer2_modifier"] = c.get_active_id(); app.save(); win.refresh()
+            cfg["layer2_modifier"] = c.get_active_id(); app.save(); win.refresh(); app.refresh_state()
         mod.connect("changed", mod_changed)
 
         def check(text, key, tip=None):
@@ -43,8 +47,13 @@ class SettingsDialog(Gtk.Dialog):
         spin("Hold time (ms)", "hold_ms", 150, 1000, 50, "How long to keep a key down for a Hold action")
         spin("Double-tap window (ms)", "double_ms", 150, 800, 50, "Max gap between the two taps")
         spin("Cheat sheet stays (seconds)", "overlay_secs", 0, 30, 1, "0 = until you click it or press a key")
-        auto = Gtk.CheckButton(label="Start automatically at login"); auto.set_active(AUTOSTART.exists())
-        auto.connect("toggled", lambda c: app.set_autostart(c.get_active()))
+        auto = Gtk.CheckButton(label="Start automatically at login"); auto.set_active(is_enabled())
+
+        def auto_toggled(c):
+            ok, msg = set_autostart(c.get_active())
+            if not ok:
+                notify("NumpadBind: autostart failed", msg)
+                c.handler_block_by_func(auto_toggled); c.set_active(is_enabled()); c.handler_unblock_by_func(auto_toggled)
+        auto.connect("toggled", auto_toggled)
         box.pack_start(auto, False, False, 0)
         self.show_all()
-
